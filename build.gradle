@@ -1,0 +1,19 @@
+android {
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.alluvamz.mdbc"
+        minSdk 23
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildFeatures {
+        viewBinding true
+    }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
+}

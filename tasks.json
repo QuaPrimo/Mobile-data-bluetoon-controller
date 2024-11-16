@@ -1,0 +1,12 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Build and Install APK",
+        "type": "shell",
+        "command": "./gradlew assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk",
+        "problemMatcher": []
+      }
+    ]
+  }
+  

@@ -1,71 +1,112 @@
+package com.alluvamz.mdbc
+
+import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
-import android.content.Context
-import android.net.ConnectivityManager
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.InputStream
+import java.io.IOException
 import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
-    private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
-    private val appName = "BluetoothDataControl"
-    private val appUuid: UUID = UUID.fromString("12345678-1234-1234-1234-123456789abc") // Custom UUID
+    private val bluetoothAdapter: BluetoothAdapter? by lazy { BluetoothAdapter.getDefaultAdapter() }
+    private val appUUID: UUID = UUID.fromString("b3c4e2b8-3e30-11ed-b878-0242ac120002")
+    private val appName = "MDBC"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Start Bluetooth server
-        CoroutineScope(Dispatchers.IO).launch {
+        checkPermissions()
+    }
+
+    private fun checkPermissions() {
+        val permissions = arrayOf(
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
+
+        val missingPermissions = permissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+
+        if (missingPermissions.isNotEmpty()) {
+            requestPermissionsLauncher.launch(missingPermissions.toTypedArray())
+        } else {
+            // Permissions already granted
             startBluetoothServer()
         }
     }
 
+    private val requestPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.entries.all { it.value }
+        if (allGranted) {
+            startBluetoothServer()
+        } else {
+            Toast.makeText(this, "Permissions denied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun startBluetoothServer() {
-        val serverSocket: BluetoothServerSocket? = bluetoothAdapter?.listenUsingRfcommWithServiceRecord(appName, appUuid)
+        if (bluetoothAdapter == null) {
+            Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-        while (true) {
-            val socket: BluetoothSocket? = serverSocket?.accept()
-            socket?.let {
-                handleBluetoothConnection(it)
-                serverSocket.close()
-                break
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val serverSocket: BluetoothServerSocket? =
+                    bluetoothAdapter?.listenUsingRfcommWithServiceRecord(appName, appUUID)
+                serverSocket?.let {
+                    while (true) {
+                        val socket: BluetoothSocket = it.accept()
+                        handleClientSocket(socket)
+                    }
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
             }
         }
     }
 
-    private fun handleBluetoothConnection(socket: BluetoothSocket) {
-        val inputStream: InputStream = socket.inputStream
+    private fun handleClientSocket(socket: BluetoothSocket) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val inputStream = socket.inputStream
+                val buffer = ByteArray(1024)
+                val bytesRead = inputStream.read(buffer)
+                val command = String(buffer, 0, bytesRead).trim()
 
-        // Read commands
-        val buffer = ByteArray(1024)
-        var bytes: Int
-        while (true) {
-            bytes = inputStream.read(buffer)
-            val command = String(buffer, 0, bytes)
-            if (command.equals("TURN_ON", ignoreCase = true)) {
-                toggleMobileData(true)
-            } else if (command.equals("TURN_OFF", ignoreCase = true)) {
-                toggleMobileData(false)
+                when (command) {
+                    "TURN_ON" -> {
+                        // Logic to enable mobile data
+                        runOnUiThread { Toast.makeText(this@MainActivity, "Turning ON data", Toast.LENGTH_SHORT).show() }
+                    }
+                    "TURN_OFF" -> {
+                        // Logic to disable mobile data
+                        runOnUiThread { Toast.makeText(this@MainActivity, "Turning OFF data", Toast.LENGTH_SHORT).show() }
+                    }
+                    else -> {
+                        runOnUiThread { Toast.makeText(this@MainActivity, "Unknown command: $command", Toast.LENGTH_SHORT).show() }
+                    }
+                }
+
+                socket.close()
+            } catch (e: IOException) {
+                e.printStackTrace()
             }
-        }
-    }
-
-    private fun toggleMobileData(enable: Boolean) {
-        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
-        try {
-            val method = ConnectivityManager::class.java.getDeclaredMethod("setMobileDataEnabled", Boolean::class.javaPrimitiveType)
-            method.isAccessible = true
-            method.invoke(connectivityManager, enable)
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 }
