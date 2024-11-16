@@ -1,0 +1,22 @@
+# Gradle files
+.gradle/
+*.iml
+build/
+.idea/
+
+# Local configuration
+local.properties
+.DS_Store
+
+# Log files
+*.log
+
+# Android-specific files
+.cxx/
+.externalNativeBuild/
+.captures/
+*.apk
+*.keystore
+
+# VS Code-specific files
+.vscode/
